@@ -3,6 +3,10 @@ import os
 import sys
 import signal
 from utils import *
+from parser import *
+from users import *
+from variables import *
+
 
 class Server:
 
@@ -14,6 +18,17 @@ class Server:
 
 		# parse input arguments
 		self.checkArguments()
+
+		# initialize lists
+		self.usersList = []
+		self.variablesList = []
+		self.executionList = []
+		self.responseList = []
+		self.permissions = []
+		self.parser = Parser()
+
+		self.usersList.append(User('admin', self.adminPassword))
+		self.variablesList.append(Variable('msg', 'still to much to do'))
 
 		# exit bindings
 		signal.signal(signal.SIGINT, self.exit_clean)
@@ -51,13 +66,49 @@ class Server:
 		self.s.listen(1)
 
 		while 1:
-			self.fieldsDict = dict()
+			validated = False
+			authenticated = False
 
 			c = self.s.accept()
 			self.cli_conn, cli_addr = c
 
 			try:
-				receiveMessage(self.cli_conn)
+				debug("Main Loop")
+				debug(self.usersList)
+				debug(self.variablesList)
+
+				# receiveMessage(self.cli_conn)
+				input = self.cli_conn.recv(1024)
+
+				# initial validation and authentication
+				validated = self.parser.validateInput(input)
+
+				if validated:
+					principal, password = self.parser.extractUserCredentials(input)
+
+					for user in self.usersList:
+						if user.name == principal and user.password == password:
+							authenticated = True
+
+					if authenticated:
+						for line in input.splitlines():
+							extractedCommand = self.parser.extractCommands(line)
+							if extractedCommand != None:
+								self.executionList.append(extractedCommand)
+
+						for command in self.executionList:
+							response = command.execute(self.variablesList)
+							self.responseList.append(response)
+
+					else:
+						self.responseList.append('{"status":"FAILED"}\n')
+
+				else:
+					self.responseList.append('{"status":"FAILED"}\n')
+
+				self.cli_conn.send(''.join(self.responseList))
+				self.executionList = []
+				self.responseList = []
 
 			except ret255:
 				sys.stdout.flush()
@@ -71,10 +122,9 @@ class Server:
 				self.cli_conn.close()
 
 
-	# def sendReply(self):
-
 try:
-	seuCurityServer=Server()
+	seuCurityServer = Server()
+
 except ret255, e:
 	debug('ret255: ' + str(e))
 	sys.exit(-1)
