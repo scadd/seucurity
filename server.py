@@ -30,7 +30,7 @@ class Server:
 		self.parser = Parser()
 
 		self.usersList.append(User('admin', self.adminPassword))
-		self.variablesList.append(Variable('msg', 'still to much to do'))
+		self.variablesList.append(Variable('msg', 'still to much to do', ('rwad', 'admin', 'admin')))
 
 		# exit bindings
 		signal.signal(signal.SIGINT, self.exit_clean)
@@ -89,19 +89,27 @@ class Server:
 					principal, password = self.parser.extractUserCredentials(input)
 
 					for user in self.usersList:
+						print user.name, user.password
 						if user.name == principal and user.password == password:
 							authenticated = True
+							debug('authenticated')
+							break
 
 					if authenticated:
 						for line in input.splitlines():
 							extractedCommand = self.parser.extractCommands(line)
-							if extractedCommand != None:
+
+							if extractedCommand is not None:
 								self.executionList.append(extractedCommand)
 
 						for command in self.executionList:
-							response = command.execute(self.variablesList, self.usersList)
+							response = command.execute(self.variablesList, self.usersList, activePrincipal=principal)
 							debug(response)
 							self.responseList.append(response)
+
+							# stop execution if error found
+							if response.find('DENIED') > 0:
+								break
 
 					else:
 						self.responseList.append('{"status":"FAILED"}\n')
@@ -123,7 +131,6 @@ class Server:
 			finally:
 				self.cli_conn.shutdown(socket.SHUT_RDWR)
 				self.cli_conn.close()
-
 
 
 try:

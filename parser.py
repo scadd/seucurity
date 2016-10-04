@@ -9,8 +9,9 @@ class Parser:
 		self.autenticationRE = 'as principal (.+) password "(.+)" do'
 		self.wrapperRE = 'as principal .*\*\*\*'
 		self.returnCommandRE = '\s*return\s+(.*)'
-		self.createPrincipalCommandRE = '\s*create\s+principal\s+([A-Za-z][A-Za-z0-9_]*)\s+("[A-Za-z0-9_ ,;\.?!-]*")'
+		self.createPrincipalCommandRE = '\s*create\s+principal\s+([A-Za-z][A-Za-z0-9_]*)\s+"([A-Za-z0-9_ ,;\.?!-]*)"'
 		self.setCommandRE = '\s*set\s+([A-Za-z][A-Za-z0-9_]*)\s*=\s*([A-Za-z][A-Za-z0-9_]*|[A-Za-z][A-Za-z0-9_]*\.[A-Za-z][A-Za-z0-9_]*|"[A-Za-z0-9_ ,;\.?!-]*")'
+		self.setDelegationCommandRE = '\s*set\s+delegation\s+([A-Za-z][A-Za-z0-9_]*)\s+([A-Za-z][A-Za-z0-9_]*)\s+(read|write|append|delegate)\s*->\s*([A-Za-z][A-Za-z0-9_]*)'
 
 	def extractUserCredentials(self, input):
 		search = re.search(self.autenticationRE, input)
@@ -40,6 +41,16 @@ class Parser:
 			variableValue = search.group(2)
 			print variableName, variableValue
 			return Command('set', variableName=variableName, variableValue=variableValue)
+
+		search = re.search(self.setDelegationCommandRE, input)
+
+		if search is not None:
+			variableName = search.group(1)
+			delegatedBy = search.group(2)
+			right = search.group(3)
+			delegatedTo = search.group(4)
+			print variableName, delegatedBy, right, delegatedTo
+			return Command('set delegation', variableName=variableName, delegatedBy=delegatedBy, right=right, delegatedTo=delegatedTo)
 
 		return None
 
